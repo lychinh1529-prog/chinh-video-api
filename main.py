@@ -22,6 +22,10 @@ def get_video_info(url: str):
             'format': 'best',
             'quiet': True,
             'no_warnings': True,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            }
         }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -55,4 +59,4 @@ def get_video_info(url: str):
 @app.get("/")
 def root():
     return {"status": "API is running successfully!"}
-  
+    
