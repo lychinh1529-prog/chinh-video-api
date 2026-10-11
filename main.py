@@ -165,11 +165,7 @@ def home():
     }
 
 
-@app.get("/health")
-def health():
-    return {
-        "status": "ok"
-    }
+
 
 
 # ==============================
@@ -186,6 +182,12 @@ def download_info(request: DownloadRequest):
         "code": 0,
         "message": "success",
         "data": info
+    } 
+    @app.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "yt_dlp_version": yt_dlp.version.__version__
     }
 
 
