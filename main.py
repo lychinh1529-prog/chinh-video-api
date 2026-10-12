@@ -77,10 +77,20 @@ def get_info(url: str):
             result = json.loads(response.read().decode("utf-8"))
 
     except HTTPError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=f"SaveAPI trả về lỗi HTTP {exc.code}."
-        )
+    try:
+        body = exc.read().decode("utf-8")
+        data = json.loads(body)
+        error = data.get("error") or {}
+        code = error.get("code", "UNKNOWN")
+        message = error.get("message", "Không rõ nguyên nhân")
+    except Exception:
+        code = "UNKNOWN"
+        message = "Không đọc được phản hồi xác thực"
+
+    raise HTTPException(
+        status_code=502,
+        detail=f"SaveAPI HTTP {exc.code}: {code} — {message}"
+    )
 
     except (URLError, TimeoutError):
         raise HTTPException(
