@@ -17,7 +17,34 @@ app = FastAPI(title="Chinh Video API")
 
 SAVEAPI_KEY = os.getenv("SAVEAPI_KEY", "").strip()
 SAVEAPI_URL = "https://api.saveapi.org/v1/download"
+@app.get("/api/check-saveapi")
+def check_saveapi():
+    if not SAVEAPI_KEY:
+        return {"ok": False, "error": "SAVEAPI_KEY is empty"}
 
+    request = Request(
+        "https://api.saveapi.org/v1/me",
+        headers={
+            "Authorization": f"Bearer {SAVEAPI_KEY}",
+            "Accept": "application/json",
+        },
+    )
+
+    try:
+        with urlopen(request, timeout=15) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            return {"ok": True, "result": data}
+
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        return {
+            "ok": False,
+            "http_status": exc.code,
+            "response": body[:500],
+        }
+
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)[:300]}
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
