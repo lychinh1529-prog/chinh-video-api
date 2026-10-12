@@ -1,23 +1,22 @@
 import os
+import json
 import shutil
 import tempfile
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlencode
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
 
-import yt_dlp
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from starlette.background import BackgroundTask
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 
 app = FastAPI(title="Chinh Video API")
 
-
-# ==============================
-# CẤU HÌNH CORS
-# ==============================
+SAVEAPI_KEY = os.getenv("SAVEAPI_KEY", "").strip()
+SAVEAPI_URL = "https://api.saveapi.org/v1/download"
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,13 +29,13 @@ app.add_middleware(
 )
 
 
-# ==============================
-# KIỂM TRA ĐƯỜNG DẪN
-# ==============================
+class DownloadRequest(BaseModel):
+    url: str
+
 
 def check_url(url: str):
     try:
-        parsed = urlparse(url)
+        parsed = urlparse(url.strip())
         host = (parsed.hostname or "").lower()
 
         if parsed.scheme not in ("http", "https"):
@@ -55,107 +54,75 @@ def check_url(url: str):
         )
 
 
-# ==============================
-# MODEL NHẬN DỮ LIỆU
-# ==============================
-
-class DownloadRequest(BaseModel):
-    url: str
-
-
-# ==============================
-# LẤY THÔNG TIN VIDEO
-# ==============================
-
 def get_info(url: str):
     check_url(url)
 
-    options = {
-        "format": "best[ext=mp4]/best",
-        "quiet": True,
-        "no_warnings": True,
-        "noplaylist": True,
-        "socket_timeout": 30,
-        "extract_flat": False,
-    }
-
-    try:
-        with yt_dlp.YoutubeDL(options) as ydl:
-            info = ydl.extract_info(url, download=False)
-
-        if not info:
-            raise HTTPException(
-                status_code=502,
-                detail="Không lấy được thông tin video."
-            )
-
-        return {
-            "title": info.get("title") or "Video",
-            "description": info.get("description") or "",
-            "uploader": info.get("uploader") or "",
-            "thumbnail": info.get("thumbnail") or "",
-            "duration": info.get("duration"),
-            "webpage_url": info.get("webpage_url") or url,
-        }
-
-    except HTTPException:
-        raise
-
-    except Exception as exc:
+    if not SAVEAPI_KEY:
         raise HTTPException(
-            status_code=502,
-            detail=f"Không thể lấy thông tin video: {str(exc)[:300]}"
+            status_code=500,
+            detail="Máy chủ chưa cấu hình SAVEAPI_KEY."
         )
 
-
-# ==============================
-# TẢI VIDEO VÀO TỆP TẠM
-# ==============================
-
-def save_video(url: str, folder: str):
-    check_url(url)
-
-    output_template = str(
-        Path(folder) / "video.%(ext)s"
+    params = urlencode({"url": url})
+    request = Request(
+        f"{SAVEAPI_URL}?{params}",
+        headers={
+            "Authorization": f"Bearer {SAVEAPI_KEY}",
+            "Accept": "application/json",
+        },
     )
 
-    options = {
-        "format": "best[ext=mp4]/best",
-        "outtmpl": output_template,
-        "quiet": True,
-        "no_warnings": True,
-        "noplaylist": True,
-        "socket_timeout": 45,
-        "retries": 2,
-    }
-
     try:
-        with yt_dlp.YoutubeDL(options) as ydl:
-            ydl.download([url])
+        with urlopen(request, timeout=30) as response:
+            result = json.loads(response.read().decode("utf-8"))
 
-        files = list(Path(folder).glob("video.*"))
-
-        if not files:
-            raise HTTPException(
-                status_code=502,
-                detail="Máy chủ không tải được tệp video."
-            )
-
-        return str(files[0])
-
-    except HTTPException:
-        raise
-
-    except Exception as exc:
+    except HTTPError as exc:
         raise HTTPException(
             status_code=502,
-            detail=f"Lỗi tải video: {str(exc)[:300]}"
+            detail=f"SaveAPI trả về lỗi HTTP {exc.code}."
         )
 
+    except (URLError, TimeoutError):
+        raise HTTPException(
+            status_code=504,
+            detail="Không thể kết nối SaveAPI."
+        )
 
-# ==============================
-# API KIỂM TRA MÁY CHỦ
-# ==============================
+    except Exception:
+        raise HTTPException(
+            status_code=502,
+            detail="Không đọc được phản hồi từ SaveAPI."
+        )
+
+    if not result.get("success"):
+        error = result.get("error") or {}
+        message = error.get("message") or "Không lấy được video."
+        raise HTTPException(status_code=502, detail=message)
+
+    medias = result.get("medias") or []
+    video = next(
+        (item for item in medias if item.get("type") == "video"),
+        None
+    )
+
+    if not video or not video.get("url"):
+        raise HTTPException(
+            status_code=502,
+            detail="API không trả về liên kết video."
+        )
+
+    meta = result.get("meta") or {}
+
+    return {
+        "title": meta.get("title") or meta.get("text") or "TikTok Video",
+        "description": meta.get("text") or meta.get("description") or "",
+        "uploader": meta.get("author") or meta.get("username") or "",
+        "thumbnail": meta.get("thumbnail") or meta.get("cover") or "",
+        "duration": meta.get("duration"),
+        "webpage_url": result.get("source_url") or url,
+        "video_url": video["url"],
+    }
+
 
 @app.get("/")
 def home():
@@ -165,51 +132,62 @@ def home():
     }
 
 
+@app.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "saveapi_configured": bool(SAVEAPI_KEY)
+    }
 
-
-
-# ==============================
-# API LẤY THÔNG TIN VIDEO
-# ==============================
 
 @app.post("/api/download")
 def download_info(request: DownloadRequest):
-    url = request.url.strip()
-
-    info = get_info(url)
+    info = get_info(request.url.strip())
 
     return {
         "code": 0,
         "message": "success",
         "data": info
-    } 
-    @app.get("/health")
-def health():
-    return {
-        "status": "ok",
-        "yt_dlp_version": yt_dlp.version.__version__
     }
 
 
-# ==============================
-# API XEM VIDEO
-# ==============================
+def stream_video(video_url: str):
+    request = Request(
+        video_url,
+        headers={"User-Agent": "Mozilla/5.0"}
+    )
+
+    try:
+        with urlopen(request, timeout=60) as response:
+            while True:
+                chunk = response.read(64 * 1024)
+                if not chunk:
+                    break
+                yield chunk
+
+    except Exception:
+        return
+
+
+def video_response(url: str, filename: str):
+    info = get_info(url)
+
+    return StreamingResponse(
+        stream_video(info["video_url"]),
+        media_type="video/mp4",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        }
+    )
+
 
 @app.get("/api/video")
 def get_video(url: str = Query(..., min_length=1)):
-    url = url.strip()
+    info = get_info(url.strip())
 
-    with tempfile.TemporaryDirectory() as folder:
-        video_path = save_video(url, folder)
-
-        # Đọc nội dung vào bộ nhớ trước khi thư mục tạm bị xóa.
-        with open(video_path, "rb") as video_file:
-            video_data = video_file.read()
-
-    from fastapi.responses import Response
-
-    return Response(
-        content=video_data,
+    return StreamingResponse(
+        stream_video(info["video_url"]),
         media_type="video/mp4",
         headers={
             "Content-Disposition": 'inline; filename="video.mp4"',
@@ -218,32 +196,6 @@ def get_video(url: str = Query(..., min_length=1)):
     )
 
 
-# ==============================
-# API TẢI VIDEO XUỐNG
-# ==============================
-
 @app.get("/api/download-file")
 def download_file(url: str = Query(..., min_length=1)):
-    url = url.strip()
-
-    check_url(url)
-
-    folder = tempfile.mkdtemp(prefix="chinh_video_")
-
-    try:
-        video_path = save_video(url, folder)
-
-        return FileResponse(
-            path=video_path,
-            media_type="application/octet-stream",
-            filename="video.mp4",
-            background=BackgroundTask(
-                shutil.rmtree,
-                folder,
-                ignore_errors=True
-            )
-        )
-
-    except Exception:
-        shutil.rmtree(folder, ignore_errors=True)
-        raise
+    return video_response(url.strip(), "video.mp4")
