@@ -67,9 +67,9 @@ def get_info(url: str):
     request = Request(
         f"{SAVEAPI_URL}?{params}",
         headers={
-            "Authorization": f"Bearer {SAVEAPI_KEY}",
-            "Accept": "application/json",
-        },
+    "X-API-Key": SAVEAPI_KEY,
+    "Accept": "application/json",
+},
     )
 
     try:
