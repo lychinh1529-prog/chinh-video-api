@@ -27,7 +27,7 @@
     </div>
 
     <div class="form-group">
-        <label>Tên tài khoản (Username / ID):</label>
+        <label>Tên tài khoản (Username):</label>
         <input type="text" id="username" placeholder="Nhập tên user (VD: chinhly_212)">
     </div>
 
@@ -68,7 +68,7 @@
             const res = await fetch(`${url}/api/user/${username}`);
             box.style.display = 'block';
             
-            // Nếu server trả về 404 (Không tìm thấy tài khoản)
+            // Nếu server trả về lỗi 404 (Tài khoản không tồn tại trên hệ thống)
             if (res.status === 404) {
                 box.style.borderLeftColor = '#e41e3f';
                 box.innerHTML = `<span style="color:#e41e3f; font-weight:bold;">❌ Tài khoản "${username}" không tồn tại trên hệ thống!</span>`;
