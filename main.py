@@ -163,7 +163,8 @@ class UserUpdateModel(BaseModel):
 def health():
     return {
         "status": "ok",
-        "firebase_connected": db is not None
+        "firebase_connected": db is not None,
+        "firebase_error": FIREBASE_ERROR
     }
 
 
