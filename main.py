@@ -1,17 +1,19 @@
-from datetime import datetime, timedelta, timezone
 import os
-import sqlite3
-from contextlib import contextmanager
+import hmac
+import json
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Header
+import firebase_admin
+from firebase_admin import credentials, firestore
+from fastapi import FastAPI, HTTPException, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 app = FastAPI(title="CHINH VIDEO API")
 
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
-DATABASE_PATH = os.getenv("DATABASE_PATH", "users.db")
+FIREBASE_JSON = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "")
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,228 +26,307 @@ app.add_middleware(
 )
 
 
-def now_utc():
-    return datetime.now(timezone.utc)
+def connect_firebase():
+    if firebase_admin._apps:
+        return firestore.client()
+
+    if not FIREBASE_JSON:
+        raise RuntimeError("Thiếu FIREBASE_SERVICE_ACCOUNT_JSON")
+
+    info = json.loads(FIREBASE_JSON)
+    credential = credentials.Certificate(info)
+    firebase_admin.initialize_app(credential)
+
+    return firestore.client()
 
 
-def to_iso(value):
-    return value.astimezone(timezone.utc).isoformat()
+try:
+    db = connect_firebase()
+except Exception:
+    db = None
 
 
-def parse_datetime(value):
-    dt = datetime.fromisoformat(value)
-
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-
-    return dt.astimezone(timezone.utc)
-
-
-@contextmanager
-def db_connection():
-    conn = sqlite3.connect(DATABASE_PATH, timeout=20)
-    conn.row_factory = sqlite3.Row
-
-    try:
-        yield conn
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+def get_db():
+    if db is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Firebase chưa kết nối. Kiểm tra cấu hình Render."
+        )
+    return db
 
 
-def init_db():
-    with db_connection() as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                username TEXT PRIMARY KEY,
-                created_at TEXT NOT NULL,
-                is_pro INTEGER NOT NULL DEFAULT 0,
-                trial_expires_at TEXT NOT NULL
-            )
-        """)
-
-
-init_db()
-
-
-class UserCreateModel(BaseModel):
-    username: str = Field(
-        min_length=3,
-        max_length=80,
-        pattern=r"^[A-Za-z0-9_.-]+$"
-    )
-
-
-class UserUpdateModel(BaseModel):
-    is_pro: Optional[bool] = None
-    extend_days: int = Field(default=0, ge=0, le=3650)
-
-
-def require_admin(x_admin_token: Optional[str]):
+def check_admin(token):
     if not ADMIN_TOKEN:
         raise HTTPException(
             status_code=503,
-            detail="Admin chưa được cấu hình ADMIN_TOKEN."
+            detail="Chưa cấu hình ADMIN_TOKEN trên Render."
         )
 
-    if not x_admin_token or x_admin_token != ADMIN_TOKEN:
+    if not token or not hmac.compare_digest(token, ADMIN_TOKEN):
         raise HTTPException(
             status_code=401,
             detail="Không có quyền quản trị."
         )
 
 
-def get_user_row(username):
-    with db_connection() as conn:
-        return conn.execute(
-            """
-            SELECT username, created_at, is_pro, trial_expires_at
-            FROM users
-            WHERE username = ?
-            """,
-            (username,)
-        ).fetchone()
+def now_utc():
+    return datetime.now(timezone.utc)
 
 
-def public_user(row):
-    expires = parse_datetime(row["trial_expires_at"])
+def parse_date(value):
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
 
-    return {
-        "username": row["username"],
-        "created_at": row["created_at"],
-        "is_pro": bool(row["is_pro"]),
-        "is_trial_active": now_utc() < expires,
-        "trial_expires_at": row["trial_expires_at"]
+    if isinstance(value, str):
+        try:
+            dt = datetime.fromisoformat(
+                value.replace("Z", "+00:00")
+            )
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(timezone.utc)
+        except ValueError:
+            return None
+
+    return None
+
+
+def find_user(username_or_id):
+    database = get_db()
+    key = username_or_id.strip()
+
+    if not key:
+        raise HTTPException(
+            status_code=400,
+            detail="Vui lòng nhập username hoặc ID."
+        )
+
+    # Tìm theo ID document, vốn là username.
+    doc = database.collection("app_users").document(key).get()
+
+    if doc.exists:
+        data = doc.to_dict() or {}
+        data["_documentId"] = doc.id
+        return data
+
+    # Nếu không tìm thấy username thì tìm uniqueId.
+    results = (
+        database.collection("app_users")
+        .where("uniqueId", "==", key)
+        .limit(1)
+        .stream()
+    )
+
+    for item in results:
+        data = item.to_dict() or {}
+        data["_documentId"] = item.id
+        return data
+
+    return None
+
+
+def safe_user(data):
+    # Không trả mật khẩu ra ngoài API.
+    result = {
+        key: value
+        for key, value in data.items()
+        if key.lower() not in {
+            "password",
+            "passwordhash",
+            "password_hash"
+        }
     }
+
+    result.pop("_documentId", None)
+
+    for key, value in list(result.items()):
+        if isinstance(value, datetime):
+            result[key] = value.isoformat()
+        elif not isinstance(
+            value,
+            (str, int, float, bool, list, dict, type(None))
+        ):
+            result[key] = str(value)
+
+    return result
+
+
+class UserUpdateModel(BaseModel):
+    is_pro: Optional[bool] = None
+    status: Optional[str] = None
+    extend_days: int = Field(default=0, ge=0, le=3650)
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
-
-
-@app.post("/api/register")
-def register_user(data: UserCreateModel):
-    username = data.username.strip()
-
-    if not username:
-        raise HTTPException(
-            status_code=400,
-            detail="Tên tài khoản không hợp lệ."
-        )
-
-    created = now_utc()
-    expires = created + timedelta(days=14)
-
-    try:
-        with db_connection() as conn:
-            conn.execute(
-                """
-                INSERT INTO users (
-                    username,
-                    created_at,
-                    is_pro,
-                    trial_expires_at
-                )
-                VALUES (?, ?, 0, ?)
-                """,
-                (
-                    username,
-                    to_iso(created),
-                    to_iso(expires)
-                )
-            )
-
-    except sqlite3.IntegrityError:
-        raise HTTPException(
-            status_code=409,
-            detail="Tài khoản đã tồn tại."
-        )
-
     return {
-        "status": "success",
-        "username": username
+        "status": "ok",
+        "firebase_connected": db is not None
     }
 
 
-@app.get("/api/user/{username}")
-def get_user_status(username: str):
-    # Không tự tạo tài khoản khi tìm kiếm.
-    row = get_user_row(username)
+@app.get("/api/user/{username_or_id}")
+def get_user_status(username_or_id: str):
+    user = find_user(username_or_id)
 
-    if row is None:
+    if user is None:
         raise HTTPException(
             status_code=404,
             detail="Không tìm thấy tài khoản."
         )
 
-    return public_user(row)
+    return safe_user(user)
 
 
-@app.post("/api/admin/update-user/{username}")
+@app.get("/api/admin/users")
+def list_users(
+    q: Optional[str] = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    x_admin_token: Optional[str] = Header(
+        default=None,
+        alias="X-Admin-Token"
+    )
+):
+    check_admin(x_admin_token)
+    database = get_db()
+
+    documents = (
+        database.collection("app_users")
+        .limit(limit)
+        .stream()
+    )
+
+    users = []
+
+    for document in documents:
+        data = document.to_dict() or {}
+        data["_documentId"] = document.id
+
+        if q:
+            keyword = q.strip().lower()
+
+            username = str(
+                data.get("username", document.id)
+            ).lower()
+
+            unique_id = str(
+                data.get("uniqueId", "")
+            ).lower()
+
+            if keyword not in username and keyword not in unique_id:
+                continue
+
+        users.append(safe_user(data))
+
+    return {
+        "count": len(users),
+        "users": users
+    }
+
+
+@app.post("/api/admin/update-user/{username_or_id}")
 def admin_update_user(
-    username: str,
+    username_or_id: str,
     data: UserUpdateModel,
     x_admin_token: Optional[str] = Header(
         default=None,
         alias="X-Admin-Token"
     )
 ):
-    require_admin(x_admin_token)
+    check_admin(x_admin_token)
+    database = get_db()
 
-    row = get_user_row(username)
+    user = find_user(username_or_id)
 
-    if row is None:
+    if user is None:
         raise HTTPException(
             status_code=404,
             detail="Không tìm thấy tài khoản; không tạo mới."
         )
 
-    with db_connection() as conn:
-        current = conn.execute(
-            """
-            SELECT is_pro, trial_expires_at
-            FROM users
-            WHERE username = ?
-            """,
-            (username,)
-        ).fetchone()
+    document_id = user.get("_documentId")
 
-        if data.is_pro is None:
-            new_is_pro = current["is_pro"]
-        else:
-            new_is_pro = int(data.is_pro)
-
-        expiry = parse_datetime(
-            current["trial_expires_at"]
+    if not document_id:
+        raise HTTPException(
+            status_code=500,
+            detail="Không xác định được tài khoản."
         )
 
-        if data.extend_days > 0:
-            expiry = max(now_utc(), expiry) + timedelta(
-                days=data.extend_days
+    updates = {}
+
+    if data.status is not None:
+        if data.status not in {
+            "trial",
+            "active",
+            "disabled"
+        }:
+            raise HTTPException(
+                status_code=400,
+                detail="status phải là trial, active hoặc disabled."
             )
 
-        conn.execute(
-            """
-            UPDATE users
-            SET is_pro = ?,
-                trial_expires_at = ?
-            WHERE username = ?
-            """,
-            (
-                new_is_pro,
-                to_iso(expiry),
-                username
+        updates["status"] = data.status
+
+    if data.is_pro is not None:
+        updates["is_pro"] = data.is_pro
+
+        if data.is_pro:
+            updates["status"] = "active"
+
+    if data.extend_days > 0:
+        expiry_field = None
+
+        for field in [
+            "expiresAt",
+            "expires_at",
+            "trialExpiresAt",
+            "trial_expires_at",
+            "proExpiresAt",
+            "pro_expires_at"
+        ]:
+            if field in user:
+                expiry_field = field
+                break
+
+        if expiry_field is None:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Không tìm thấy trường ngày hết hạn. "
+                    "Cần xác định trường mà website đang sử dụng."
+                )
             )
+
+        current_expiry = parse_date(user.get(expiry_field))
+
+        base = (
+            max(now_utc(), current_expiry)
+            if current_expiry
+            else now_utc()
         )
 
-    updated = get_user_row(username)
+        updates[expiry_field] = (
+            base + timedelta(days=data.extend_days)
+        )
+
+    if not updates:
+        raise HTTPException(
+            status_code=400,
+            detail="Chưa có thông tin cần cập nhật."
+        )
+
+    (
+        database.collection("app_users")
+        .document(document_id)
+        .update(updates)
+    )
+
+    updated = find_user(document_id)
 
     return {
         "status": "success",
-        "message": f"Đã cập nhật tài khoản {username}.",
-        "user": public_user(updated)
+        "message": f"Đã cập nhật {document_id}.",
+        "user": safe_user(updated or {})
     }
