@@ -3,87 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chinh Video - Admin Panel</title>
+    <title>Chinh Video Downloader</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
-        .container { max-width: 500px; margin: 0 auto; background: white; padding: 25px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-        h2 { text-align: center; color: #1a1a1a; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px; }
-        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; box-sizing: border-box; }
-        button { width: 100%; background: #0066ff; color: white; border: none; padding: 12px; border-radius: 10px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; }
-        .result-box { margin-top: 20px; background: #f8f9fa; padding: 15px; border-radius: 10px; border-left: 4px solid #0066ff; display: none; font-size: 14px; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: #f4f7fc; color: #1c1e21; padding-bottom: 70px; }
+        
+        /* Header */
+        .header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .logo-group { display: flex; align-items: center; gap: 12px; }
+        .logo-icon { width: 42px; height: 42px; background: linear-gradient(135deg, #0066ff, #00c6ff); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-size: 20px; }
+        .brand-name { font-size: 18px; font-weight: 800; color: #1c1e21; }
+        .brand-name span { color: #0066ff; }
+        
+        /* Badge Trạng thái Pro / dùng thử */
+        .user-status-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; margin-top: 2px; }
+        .badge-pro { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .badge-trial { background: #e2e3e5; color: #383d41; border: 1px solid #d6d8db; }
+        .badge-expired { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+        /* Container & Sections */
+        .container { padding: 20px; max-width: 600px; margin: 0 auto; }
+        .page-section { display: none; }
+        .page-section.active { display: block; }
+        
+        .section-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+        .section-sub { font-size: 14px; color: #65676b; margin-bottom: 20px; }
+        
+        .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); margin-bottom: 16px; }
+        .info-row { padding: 12px 0; border-bottom: 1px solid #f0f2f5; }
+        .info-row:last-child { border-bottom: none; }
+        .info-label { font-size: 13px; color: #65676b; font-weight: 600; margin-bottom: 4px; }
+        .info-val { font-size: 15px; font-weight: 700; color: #1c1e21; }
+        
+        /* Form Tải Video */
+        .input-box { width: 100%; padding: 14px; border: 2px solid #e4e6eb; border-radius: 12px; font-size: 15px; outline: none; transition: 0.2s; }
+        .input-box:focus { border-color: #0066ff; }
+        .btn-main { width: 100%; background: #0066ff; color: white; border: none; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 16px; margin-top: 12px; cursor: pointer; }
+        .btn-danger { background: #e41e3f; }
+
+        /* Bottom Nav Bar */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 65px; background: white; display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #e4e6eb; box-shadow: 0 -2px 10px rgba(0,0,0,0.03); }
+        .nav-item { display: flex; flex-direction: column; align-items: center; color: #65676b; text-decoration: none; font-size: 12px; font-weight: 600; gap: 4px; background: none; border: none; width: 33%; cursor: pointer; }
+        .nav-item i { font-size: 18px; }
+        .nav-item.active { color: #0066ff; }
     </style>
 </head>
 <body>
-<div class="container">
-    <h2>🛠️ Quản lý tài khoản</h2>
-    
-    <div class="form-group">
-        <label>Link API Render của bạn:</label>
-        <input type="text" id="apiUrl" value="https://chinh-video-api.onrender.com">
+
+    <!-- Header -->
+    <div class="header">
+        <div class="logo-group">
+            <div class="logo-icon"><i class="fa-solid fa-play"></i></div>
+            <div>
+                <div class="brand-name">CHINH <span>VIDEO</span></div>
+                <div id="statusBadge" class="user-status-badge badge-trial">⏳ Đang tải...</div>
+            </div>
+        </div>
+        <button class="nav-item" style="width: auto;" onclick="switchTab('settings')"><i class="fa-solid fa-gear" style="font-size: 20px;"></i></button>
     </div>
 
-    <div class="form-group">
-        <label>Tên tài khoản (Username):</label>
-        <input type="text" id="username" placeholder="Nhập tên user (VD: chinhly_212)">
+    <div class="container">
+        <!-- Trang chủ -->
+        <div id="tab-home" class="page-section active">
+            <div class="section-title">Tải Video ⚡</div>
+            <div class="section-sub">Dán liên kết TikTok, Douyin hoặc Facebook để tải video.</div>
+            
+            <div class="card">
+                <input type="text" class="input-box" placeholder="Dán link video tại đây...">
+                <button class="btn-main"><i class="fa-solid fa-download"></i> Tải Video Ngay</button>
+            </div>
+        </div>
+
+        <!-- Chỉnh sửa -->
+        <div id="tab-edit" class="page-section">
+            <div class="section-title">Chỉnh sửa ✂️</div>
+            <div class="section-sub">Công cụ tách nhạc và chỉnh sửa video nhanh.</div>
+            <div class="card">
+                <p style="text-align: center; color: #65676b;">Tính năng đang được phát triển...</p>
+            </div>
+        </div>
+
+        <!-- Cài đặt -->
+        <div id="tab-settings" class="page-section">
+            <div class="section-title">Cài đặt ⚙️</div>
+            <div class="section-sub">Quản lý trải nghiệm sử dụng Chinh Video.</div>
+            
+            <div class="card">
+                <h3 style="margin-bottom: 12px; font-size: 16px;">Thông tin tài khoản</h3>
+                <div class="info-row">
+                    <div class="info-label">Tên tài khoản (ID)</div>
+                    <div class="info-val" id="accUsername">chinhly_212</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Trạng thái gói</div>
+                    <div class="info-val" id="accStatus">Kiểm tra...</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin-bottom: 12px; font-size: 16px;">Hỗ trợ & Mở khóa</h3>
+                <button class="btn-main" style="background: #f0f2f5; color: #0066ff;" onclick="window.open('https://tiktok.com')">Liên hệ Admin TikTok</button>
+                <button class="btn-main btn-danger" style="margin-top: 10px;">Đăng xuất tài khoản</button>
+            </div>
+        </div>
     </div>
 
-    <button onclick="checkUser()">Kiểm tra thông tin</button>
-
-    <hr style="margin: 25px 0; border: 0; border-top: 1px solid #eee;">
-
-    <div class="form-group">
-        <label>Cấp quyền Pro:</label>
-        <select id="isPro">
-            <option value="true">Bật Pro (True)</option>
-            <option value="false">Tắt Pro (False)</option>
-        </select>
+    <!-- Bottom Navigation -->
+    <div class="bottom-nav">
+        <button class="nav-item active" onclick="switchTab('home')">
+            <i class="fa-solid fa-house"></i>
+            <span>Trang chủ</span>
+        </button>
+        <button class="nav-item" onclick="switchTab('edit')">
+            <i class="fa-solid fa-scissors"></i>
+            <span>Chỉnh sửa</span>
+        </button>
+        <button class="nav-item" onclick="switchTab('settings')">
+            <i class="fa-solid fa-gear"></i>
+            <span>Cài đặt</span>
+        </button>
     </div>
-
-    <div class="form-group">
-        <label>Cộng thêm ngày dùng thử:</label>
-        <input type="number" id="extendDays" value="14">
-    </div>
-
-    <button style="background: #28a745;" onclick="updateUser()">Cập nhật ngay</button>
-
-    <div id="resultBox" class="result-box"></div>
-</div>
 
 <script>
-    async function checkUser() {
-        const url = document.getElementById('apiUrl').value.trim();
-        const username = document.getElementById('username').value.trim();
-        const box = document.getElementById('resultBox');
-        if (!username) { alert('Nhập username đi bạn!'); return; }
-        try {
-            const res = await fetch(`${url}/api/user/${username}`);
-            const data = await res.json();
-            box.style.display = 'block';
-            box.innerHTML = `<b>Thông tin:</b><br>- User: ${data.username}<br>- Pro: <b>${data.is_pro ? 'Đang bật ⭐' : 'Chưa bật'}</b><br>- Còn hạn dùng thử: ${data.is_trial_active ? 'Còn' : 'Hết'}<br>- Hết hạn: ${new Date(data.trial_expires_at).toLocaleString()}`;
-        } catch (err) { box.style.display = 'block'; box.innerHTML = `<span style="color:red;">Lỗi kết nối API!</span>`; }
+    const API_URL = "https://chinh-video-api.onrender.com";
+    const USERNAME = "chinhly_212"; // ID mặc định trên máy người dùng
+
+    function switchTab(tabName) {
+        document.querySelectorAll('.page-section').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.bottom-nav .nav-item').forEach(el => el.classList.remove('active'));
+        
+        document.getElementById(`tab-${tabName}`).classList.add('active');
+        event.currentTarget.classList.add('active');
     }
 
-    async function updateUser() {
-        const url = document.getElementById('apiUrl').value.trim();
-        const username = document.getElementById('username').value.trim();
-        const isPro = document.getElementById('isPro').value === 'true';
-        const extendDays = parseInt(document.getElementById('extendDays').value) || 0;
-        const box = document.getElementById('resultBox');
-        if (!username) { alert('Nhập username đi bạn!'); return; }
+    async function loadAccountStatus() {
+        const badge = document.getElementById('statusBadge');
+        const accStatus = document.getElementById('accStatus');
+        
         try {
-            const res = await fetch(`${url}/api/admin/update-user/${username}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ is_pro: isPro, extend_days: extendDays })
-            });
+            const res = await fetch(`${API_URL}/api/user/${USERNAME}`);
             const data = await res.json();
-            box.style.display = 'block';
-            box.innerHTML = `<span style="color:green; font-weight:bold;">${data.message}</span>`;
-            checkUser();
-        } catch (err) { box.style.display = 'block'; box.innerHTML = `<span style="color:red;">Lỗi cập nhật!</span>`; }
+            
+            if (data.is_pro) {
+                badge.className = "user-status-badge badge-pro";
+                badge.innerHTML = "⭐ PRO VIP";
+                accStatus.innerHTML = "<span style='color: #28a745;'>⭐ Tài khoản PRO (Vĩnh viễn)</span>";
+            } else if (data.is_trial_active) {
+                badge.className = "user-status-badge badge-trial";
+                badge.innerHTML = `⏳ Trial (${data.days_left} ngày)`;
+                accStatus.innerHTML = `⏳ Dùng thử (Còn ${data.days_left} ngày)`;
+            } else {
+                badge.className = "user-status-badge badge-expired";
+                badge.innerHTML = "❌ Hết hạn";
+                accStatus.innerHTML = "<span style='color: #e41e3f;'>❌ Đã hết hạn dùng thử</span>";
+            }
+        } catch (err) {
+            badge.className = "user-status-badge badge-expired";
+            badge.innerHTML = "⚠️ Offline";
+            accStatus.innerText = "Lỗi kết nối máy chủ";
+        }
     }
+
+    // Tự động kiểm tra trạng thái khi mở app
+    loadAccountStatus();
 </script>
 </body>
 </html>
