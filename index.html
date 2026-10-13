@@ -1,183 +1,243 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chinh Video Downloader</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        body { background-color: #f4f7fc; color: #1c1e21; padding-bottom: 70px; }
-        
-        /* Header */
-        .header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        .logo-group { display: flex; align-items: center; gap: 12px; }
-        .logo-icon { width: 42px; height: 42px; background: linear-gradient(135deg, #0066ff, #00c6ff); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-size: 20px; }
-        .brand-name { font-size: 18px; font-weight: 800; color: #1c1e21; }
-        .brand-name span { color: #0066ff; }
-        
-        /* Badge Trạng thái Pro / dùng thử ở góc phải */
-        .user-status-badge { font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: 20px; display: inline-block; }
-        .badge-pro { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
-        .badge-trial { background: #e2e3e5; color: #383d41; border: 1px solid #d6d8db; }
-        .badge-expired { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f8ff">
+  <meta name="description" content="Chinh Video Downloader - công cụ hỗ trợ tải video từ YouTube, Douyin, Bilibili và TikTok.">
+  <title>Chinh Video Downloader</title>
+  
+  <!-- SDK Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
-        /* Container & Sections */
-        .container { padding: 20px; max-width: 600px; margin: 0 auto; }
-        .page-section { display: none; }
-        .page-section.active { display: block; }
-        
-        .section-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
-        .section-sub { font-size: 14px; color: #65676b; margin-bottom: 20px; }
-        
-        .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); margin-bottom: 16px; }
-        .info-row { padding: 12px 0; border-bottom: 1px solid #f0f2f5; }
-        .info-row:last-child { border-bottom: none; }
-        .info-label { font-size: 13px; color: #65676b; font-weight: 600; margin-bottom: 4px; }
-        .info-val { font-size: 15px; font-weight: 700; color: #1c1e21; }
-        
-        /* Form Tải Video */
-        .input-box { width: 100%; padding: 14px; border: 2px solid #e4e6eb; border-radius: 12px; font-size: 15px; outline: none; transition: 0.2s; }
-        .input-box:focus { border-color: #0066ff; }
-        .btn-main { width: 100%; background: #0066ff; color: white; border: none; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 16px; margin-top: 12px; cursor: pointer; }
-        .btn-danger { background: #e41e3f; }
-
-        /* Bottom Nav Bar */
-        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 65px; background: white; display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #e4e6eb; box-shadow: 0 -2px 10px rgba(0,0,0,0.03); }
-        .nav-item { display: flex; flex-direction: column; align-items: center; color: #65676b; text-decoration: none; font-size: 12px; font-weight: 600; gap: 4px; background: none; border: none; width: 33%; cursor: pointer; }
-        .nav-item i { font-size: 18px; }
-        .nav-item.active { color: #0066ff; }
-    </style>
+  <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
-    <!-- Header -->
-    <div class="header">
-        <div class="logo-group">
-            <div class="logo-icon"><i class="fa-solid fa-play"></i></div>
-            <div>
-                <div class="brand-name">CHINH <span>VIDEO</span></div>
-                <div style="font-size: 12px; color: #65676b; font-weight: 500;">Downloader</div>
-            </div>
-        </div>
+  <!-- ================= MÀN HÌNH ĐĂNG NHẬP ================= -->
+  <div id="authScreen" class="auth-overlay" style="display: flex;">
+    <div class="auth-card">
+      <h2>CHINH VIDEO DOWNLOADER</h2>
+      <p class="auth-subtitle">Đăng nhập tài khoản</p>
 
-        <!-- Khu vực góc trên bên phải: Badge trạng thái (Trial/Pro) + Nút cài đặt -->
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <div id="statusBadge" class="user-status-badge badge-trial">⏳ Đang tải...</div>
-            <button onclick="switchTab('settings')" style="background: #f0f2f5; border: none; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #1c1e21;">
-                <i class="fa-solid fa-gear" style="font-size: 18px;"></i>
+      <div class="input-group" style="margin-bottom: 15px;">
+        <input type="text" id="authUsername" placeholder="Nhập tên tài khoản (ID)..." style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box;" />
+      </div>
+      
+      <div class="input-group" style="margin-bottom: 10px; position: relative;">
+        <input type="password" id="authPassword" placeholder="Nhập mật khẩu..." style="width: 100%; padding: 12px; padding-right: 45px; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box;" />
+        <span id="eyeIcon" onclick="togglePasswordVisibility('authPassword', 'eyeIcon')" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 18px;">👁️</span>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
+        <button type="button" onclick="handleForgotPassword()" style="background: none; border: none; color: #075de0; cursor: pointer; font-size: 14px; padding: 0;">Quên mật khẩu?</button>
+      </div>
+
+      <button class="btn btn-primary full-width" onclick="handleLogin()" style="margin-bottom: 10px; width: 100%; padding: 12px;">Đăng nhập</button>
+      <button class="btn btn-light full-width" onclick="showAuthSection('register')" style="width: 100%; padding: 12px;">Tạo tài khoản mới</button>
+      
+      <p id="authMessage" class="auth-msg" style="color: #e53e3e; text-align: center; margin-top: 15px; font-size: 14px;"></p>
+    </div>
+  </div>
+
+  <!-- ================= MÀN HÌNH ĐĂNG KÝ ================= -->
+  <div id="registerSection" class="auth-overlay" style="display: none;">
+    <div class="auth-card">
+      <h2>CHINH VIDEO DOWNLOADER</h2>
+      <p class="auth-subtitle">Tạo tài khoản mới</p>
+
+      <div class="input-group" style="margin-bottom: 15px;">
+        <input type="text" id="regUsername" placeholder="Tạo tên tài khoản (ID không trùng)..." style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box;" />
+      </div>
+      
+      <div class="input-group" style="margin-bottom: 20px; position: relative;">
+        <input type="password" id="regPassword" placeholder="Tạo mật khẩu..." style="width: 100%; padding: 12px; padding-right: 45px; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box;" />
+        <span id="regEyeIcon" onclick="togglePasswordVisibility('regPassword', 'regEyeIcon')" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 18px;">👁️</span>
+      </div>
+
+      <button class="btn btn-primary full-width" onclick="handleSignup()" style="margin-bottom: 10px; width: 100%; padding: 12px;">Tạo tài khoản</button>
+      <button class="btn btn-light full-width" onclick="showAuthSection('login')" style="width: 100%; padding: 12px;">Quay lại Đăng nhập</button>
+      
+      <p id="regMessage" class="auth-msg" style="text-align: center; margin-top: 15px; font-size: 14px;"></p>
+    </div>
+  </div>
+
+  <!-- ================= MÀN HÌNH KHÓA (HẾT HẠN 14 NGÀY DÙNG THỬ) ================= -->
+  <div id="lockScreen" class="lock-overlay" style="display: none;">
+    <div class="lock-card">
+      <div class="lock-header">
+        <div class="lock-icon-bg">
+          <svg class="lock-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 40px; height: 40px;">
+            <path d="M12 2C9.24 2 7 4.24 7 7V10H6C4.9 10 4 10.9 4 12V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V12C20 10.9 19.1 10 18 10H17V7C17 4.24 14.76 2 12 2ZM12 4C13.66 4 15 5.34 15 7V10H9V7C9 5.34 10.34 4 12 4ZM12 14C12.83 14 13.5 14.67 13.5 15.5C13.5 16.04 13.21 16.51 12.78 16.77V19H11.22V16.77C10.79 16.51 10.5 16.04 10.5 15.5C10.5 14.67 11.17 14 12 14Z" fill="#0066FF"/>
+          </svg>
+        </div>
+        <h2>CHINH VIDEO DOWNLOADER</h2>
+        <p class="subtitle">Phiên bản thử nghiệm V2</p>
+      </div>
+
+      <div class="id-card">
+        <div class="id-header">
+          <span class="user-icon">👤</span>
+          <span class="id-title">MÃ ĐỊNH DANH CỦA BẠN</span>
+        </div>
+        <div class="id-body">
+          <div class="id-number" id="userIdDisplay">VN-151120</div>
+          <button class="btn-copy" onclick="copyUserId()"><span>📋</span> Sao chép</button>
+        </div>
+        <div class="status-expired"><span class="dot-red">●</span> Hết hạn dùng thử (14/14 ngày)</div>
+      </div>
+
+      <div class="alert-card">
+        <div class="alert-icon">⚠️</div>
+        <div class="alert-content">
+          <h3>Bạn đã hết thời gian truy cập</h3>
+          <p>Thời gian dùng thử 14 ngày miễn phí đã kết thúc. Vui lòng liên hệ Quản trị viên để được cấp quyền mở khóa.</p>
+        </div>
+      </div>
+
+      <div class="contact-card">
+        <div class="contact-header"><span>💬</span><span class="contact-title">LIÊN HỆ MỞ KHÓA</span></div>
+        <a href="https://www.tiktok.com/@tyty_99_4" target="_blank" class="btn-tiktok">
+          <div class="tiktok-brand"><span>TikTok: @tyty_99_4</span></div>
+          <span>↗</span>
+        </a>
+      </div>
+
+      <div style="text-align: center; margin-top: 15px;">
+        <button onclick="handleLogout()" style="background: none; border: none; color: #666; cursor: pointer; text-decoration: underline; font-size: 13px;">Đăng xuất tài khoản</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= NỘI DUNG ỨNG DỤNG CHÍNH ================= -->
+  <div id="mainAppContent" style="display: none;">
+    <div class="app">
+      <header>
+        <div class="logo">▶</div>
+        <div>
+          <h1>CHINH <span>VIDEO</span></h1>
+          <p>Downloader</p>
+        </div>
+        <div id="headerProBadge" style="background: linear-gradient(135deg, #FFD700, #FFA500); color: #fff; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 13px; box-shadow: 0 4px 10px rgba(255, 165, 0, 0.3);">👑 Pro</div>
+      </header>
+
+      <main>
+        <!-- TRANG CHỦ -->
+        <section class="section active" id="home">
+          <div class="hero">
+            <h2>Tải video từ mọi nền tảng <span>nhanh chóng và dễ dàng</span></h2>
+            <p>Chinh Video Downloader giúp bạn xử lý liên kết video từ YouTube, Douyin, Bilibili và TikTok ngay trên điện thoại.</p>
+          </div>
+
+          <div class="card">
+            <div class="platform-heading">
+              <div class="section-icon">▣</div>
+              <div>
+                <h3>Chọn nền tảng</h3>
+                <p class="muted">Nhận diện tự động từ liên kết</p>
+              </div>
+            </div>
+
+            <div class="platforms">
+              <div class="platform" data-platform="YouTube"><span class="platform-icon">▶️</span><span>YouTube</span></div>
+              <div class="platform" data-platform="Douyin"><span class="platform-icon">🎵</span><span>Douyin</span></div>
+              <div class="platform" data-platform="Bilibili"><span class="platform-icon">📺</span><span>Bilibili</span></div>
+              <div class="platform" data-platform="TikTok"><span class="platform-icon">🎶</span><span>TikTok</span></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="input-title">
+              <div class="section-icon">🔗</div>
+              <div>
+                <h3>Dán liên kết video</h3>
+                <p class="muted">Hỗ trợ 4 nền tảng · Tối đa 500 ký tự</p>
+              </div>
+            </div>
+
+            <textarea id="videoUrl" maxlength="500" rows="3" placeholder="Dán liên kết video vào đây..."></textarea>
+
+            <div class="input-info">
+              <span id="platformName">Nền tảng: Chưa xác định</span>
+              <span id="charCount">0/500</span>
+            </div>
+
+            <div class="actions">
+              <button class="btn btn-light" id="pasteBtn">▣ Dán liên kết</button>
+              <button class="btn" id="clearBtn">✕ Xóa</button>
+            </div>
+
+            <button class="btn btn-primary full-width download-main" id="downloadBtn" disabled>
+              ↓ &nbsp; Bắt đầu tải video &nbsp; →
             </button>
-        </div>
+
+            <div class="status" id="statusBox" role="status"></div>
+          </div>
+        </section>
+
+        <!-- TRÌNH CHỈNH SỬA / TÁCH NHẠC -->
+        <section class="section" id="editor">
+          <div class="page-heading">
+            <h2>Chỉnh sửa & Tách nhạc ✂️</h2>
+            <p>Trích xuất âm thanh từ liên kết video ngắn nhanh chóng.</p>
+          </div>
+
+          <div class="card">
+            <div class="utility-icon">🎵</div>
+            <h3>Tách âm thanh từ Link Video</h3>
+            <p class="description">Dán đường dẫn video TikTok hoặc YouTube chứa bài hát bạn yêu thích để hệ thống bóc tách thành file nhạc MP3.</p>
+            
+            <input type="text" id="extractUrl" placeholder="Dán link video chứa nhạc tại đây..." style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; margin: 15px 0; box-sizing: border-box;" />
+            
+            <button class="btn btn-primary full-width" onclick="handleExtractAudio()" style="width: 100%; padding: 12px;">Tách lấy file nhạc (MP3)</button>
+            
+            <div id="extractStatus" style="margin-top: 15px; font-size: 14px; text-align: center;"></div>
+          </div>
+        </section>
+
+        <!-- CÀI ĐẶT (ĐÃ BỎ 3 Ô THỐNG KÊ THEO YÊU CẦU) -->
+        <section class="section" id="settings">
+          <div class="card" style="background: linear-gradient(135deg, #f6f9fc, #edf2f7); border: 1px solid #e2e8f0; border-radius: 20px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+            
+            <!-- Phần thông tin tài khoản -->
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <div style="position: relative; width: 65px; height: 65px; background: linear-gradient(135deg, #0066FF, #4c91ff); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 32px; box-shadow: 0 4px 10px rgba(0,102,255,0.3);">
+                👤
+                <div style="position: absolute; bottom: 0; right: 0; background: #FFD700; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; border: 2px solid white;">👑</div>
+              </div>
+              <div>
+                <p style="margin: 0; font-size: 13px; color: #718096; font-weight: 500;">Tài khoản</p>
+                <h3 id="settingUsername" style="margin: 2px 0 6px 0; font-size: 18px; color: #1a202c; font-weight: bold;">--</h3>
+                <div id="settingRoleBadge" style="display: inline-block; background: linear-gradient(135deg, #FFD700, #FFA500); color: white; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: bold;">👑 Pro</div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="card">
+            <h3>Hỗ trợ ứng dụng</h3>
+            <p class="muted" style="font-size: 13px; margin-bottom: 15px;">Mã định danh ứng dụng của bạn dùng để xác thực với Quản trị viên.</p>
+            <div style="background: #f8fafc; padding: 12px; border-radius: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e2e8f0;">
+              <span id="settingUniqueId" style="font-weight: bold; color: #075de0;">VN-......</span>
+              <button onclick="copyUserId()" class="btn btn-light" style="padding: 6px 12px; font-size: 12px;">Sao chép</button>
+            </div>
+            <a href="https://www.tiktok.com/@tyty_99_4" target="_blank" class="btn btn-light full-width" style="display: block; text-align: center; text-decoration: none; margin-bottom: 10px; padding: 12px;">Liên hệ Admin TikTok</a>
+            <button class="btn btn-primary full-width" onclick="handleLogout()" style="background: #e53e3e; width: 100%; padding: 12px;">Đăng xuất tài khoản</button>
+          </div>
+        </section>
+      </main>
     </div>
 
-    <div class="container">
-        <!-- Trang chủ -->
-        <div id="tab-home" class="page-section active">
-            <div class="section-title">Tải Video ⚡</div>
-            <div class="section-sub">Dán liên kết TikTok, Douyin hoặc Facebook để tải video.</div>
-            
-            <div class="card">
-                <input type="text" class="input-box" placeholder="Dán link video tại đây...">
-                <button class="btn-main"><i class="fa-solid fa-download"></i> Tải Video Ngay</button>
-            </div>
-        </div>
+    <!-- THANH ĐIỀU HƯỚNG -->
+    <nav class="bottom-nav" aria-label="Điều hướng chính">
+      <button class="nav-btn active" data-target="home"><span>⌂</span>Trang chủ</button>
+      <button class="nav-btn" data-target="editor"><span>✂</span>Chỉnh sửa</button>
+      <button class="nav-btn" data-target="settings"><span>⚙</span>Cài đặt</button>
+    </nav>
+  </div>
 
-        <!-- Chỉnh sửa -->
-        <div id="tab-edit" class="page-section">
-            <div class="section-title">Chỉnh sửa ✂️</div>
-            <div class="section-sub">Công cụ tách nhạc và chỉnh sửa video nhanh.</div>
-            <div class="card">
-                <p style="text-align: center; color: #65676b;">Tính năng đang được phát triển...</p>
-            </div>
-        </div>
-
-        <!-- Cài đặt -->
-        <div id="tab-settings" class="page-section">
-            <div class="section-title">Cài đặt ⚙️</div>
-            <div class="section-sub">Quản lý trải nghiệm sử dụng Chinh Video.</div>
-            
-            <div class="card">
-                <h3 style="margin-bottom: 12px; font-size: 16px;">Thông tin tài khoản</h3>
-                <div class="info-row">
-                    <div class="info-label">Tên tài khoản (ID)</div>
-                    <div class="info-val" id="accUsername">chinhly_212</div>
-                </div>
-                <div class="info-row">
-                    <div class="info-label">Trạng thái gói</div>
-                    <div class="info-val" id="accStatus">Kiểm tra...</div>
-                </div>
-            </div>
-
-            <div class="card">
-                <h3 style="margin-bottom: 12px; font-size: 16px;">Hỗ trợ & Mở khóa</h3>
-                <button class="btn-main" style="background: #f0f2f5; color: #0066ff;" onclick="window.open('https://tiktok.com')">Liên hệ Admin TikTok</button>
-                <button class="btn-main btn-danger" style="margin-top: 10px;">Đăng xuất tài khoản</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Bottom Navigation -->
-    <div class="bottom-nav">
-        <button class="nav-item active" onclick="switchTab('home')">
-            <i class="fa-solid fa-house"></i>
-            <span>Trang chủ</span>
-        </button>
-        <button class="nav-item" onclick="switchTab('edit')">
-            <i class="fa-solid fa-scissors"></i>
-            <span>Chỉnh sửa</span>
-        </button>
-        <button class="nav-item" onclick="switchTab('settings')">
-            <i class="fa-solid fa-gear"></i>
-            <span>Cài đặt</span>
-        </button>
-    </div>
-
-<script>
-    const API_URL = "https://chinh-video-api.onrender.com";
-    const USERNAME = "chinhly_212"; // ID mặc định trên máy người dùng
-
-    function switchTab(tabName) {
-        document.querySelectorAll('.page-section').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.bottom-nav .nav-item').forEach(el => el.classList.remove('active'));
-        
-        document.getElementById(`tab-${tabName}`).classList.add('active');
-        event.currentTarget.classList.add('active');
-    }
-
-    async function loadAccountStatus() {
-        const badge = document.getElementById('statusBadge');
-        const accStatus = document.getElementById('accStatus');
-        
-        try {
-            const res = await fetch(`${API_URL}/api/user/${USERNAME}`);
-            const data = await res.json();
-            
-            if (data.is_pro) {
-                badge.className = "user-status-badge badge-pro";
-                badge.innerHTML = "⭐ PRO VIP";
-                accStatus.innerHTML = "<span style='color: #28a745;'>⭐ Tài khoản PRO (Vĩnh viễn)</span>";
-            } else if (data.is_trial_active) {
-                const expiresDate = new Date(data.trial_expires_at);
-                const now = new Date();
-                const diffTime = expiresDate - now;
-                const daysLeft = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-
-                badge.className = "user-status-badge badge-trial";
-                badge.innerHTML = `⏳ Trial (${daysLeft} ngày)`;
-                accStatus.innerHTML = `⏳ Dùng thử (Còn ${daysLeft} ngày)`;
-            } else {
-                badge.className = "user-status-badge badge-expired";
-                badge.innerHTML = "❌ Hết hạn";
-                accStatus.innerHTML = "<span style='color: #e41e3f;'>❌ Đã hết hạn dùng thử</span>";
-            }
-        } catch (err) {
-            badge.className = "user-status-badge badge-expired";
-            badge.innerHTML = "⚠️ Offline";
-            accStatus.innerText = "Lỗi kết nối máy chủ";
-        }
-    }
-
-    loadAccountStatus();
-</script>
+  <script src="script.js"></script>
 </body>
 </html>
