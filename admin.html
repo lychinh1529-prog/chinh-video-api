@@ -68,7 +68,6 @@
             const res = await fetch(`${url}/api/user/${username}`);
             box.style.display = 'block';
             
-            // Nếu server trả về lỗi 404 (Tài khoản không tồn tại trên hệ thống)
             if (res.status === 404) {
                 box.style.borderLeftColor = '#e41e3f';
                 box.innerHTML = `<span style="color:#e41e3f; font-weight:bold;">❌ Tài khoản "${username}" không tồn tại trên hệ thống!</span>`;
@@ -120,7 +119,6 @@
             box.style.borderLeftColor = '#28a745';
             box.innerHTML = `<span style="color:#28a745; font-weight:bold;">✅ ${data.message || 'Cập nhật thành công!'}</span>`;
             
-            // Tự động load lại thông tin mới sau khi cập nhật
             checkUser();
         } catch (err) { 
             box.style.display = 'block'; 
