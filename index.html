@@ -150,9 +150,15 @@
                 badge.innerHTML = "⭐ PRO VIP";
                 accStatus.innerHTML = "<span style='color: #28a745;'>⭐ Tài khoản PRO (Vĩnh viễn)</span>";
             } else if (data.is_trial_active) {
+                // Tự động tính số ngày còn lại từ ngày hết hạn
+                const expiresDate = new Date(data.trial_expires_at);
+                const now = new Date();
+                const diffTime = expiresDate - now;
+                const daysLeft = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
                 badge.className = "user-status-badge badge-trial";
-                badge.innerHTML = `⏳ Trial (${data.days_left} ngày)`;
-                accStatus.innerHTML = `⏳ Dùng thử (Còn ${data.days_left} ngày)`;
+                badge.innerHTML = `⏳ Trial (Còn ${daysLeft} ngày)`;
+                accStatus.innerHTML = `⏳ Dùng thử (Còn ${daysLeft} ngày)`;
             } else {
                 badge.className = "user-status-badge badge-expired";
                 badge.innerHTML = "❌ Hết hạn";
@@ -168,5 +174,3 @@
     // Tự động kiểm tra trạng thái khi mở app
     loadAccountStatus();
 </script>
-</body>
-</html>
