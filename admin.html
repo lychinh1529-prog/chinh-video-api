@@ -5,14 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chinh Video - Admin Panel</title>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
         .container { max-width: 500px; margin: 0 auto; background: white; padding: 25px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-        h2 { text-align: center; color: #1a1a1a; }
+        h2 { text-align: center; color: #1a1a1a; margin-bottom: 20px; }
         .form-group { margin-bottom: 15px; }
-        label { display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px; }
-        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; box-sizing: border-box; }
+        label { display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px; color: #333; }
+        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; box-sizing: border-box; outline: none; }
+        input:focus, select:focus { border-color: #0066ff; }
         button { width: 100%; background: #0066ff; color: white; border: none; padding: 12px; border-radius: 10px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; }
-        .result-box { margin-top: 20px; background: #f8f9fa; padding: 15px; border-radius: 10px; border-left: 4px solid #0066ff; display: none; font-size: 14px; }
+        button:hover { opacity: 0.9; }
+        .result-box { margin-top: 20px; background: #f8f9fa; padding: 15px; border-radius: 10px; border-left: 4px solid #0066ff; display: none; font-size: 14px; line-height: 1.5; }
     </style>
 </head>
 <body>
@@ -25,7 +27,7 @@
     </div>
 
     <div class="form-group">
-        <label>Tên tài khoản (Username):</label>
+        <label>Tên tài khoản (Username / ID):</label>
         <input type="text" id="username" placeholder="Nhập tên user (VD: chinhly_212)">
     </div>
 
@@ -56,26 +58,34 @@
         const url = document.getElementById('apiUrl').value.trim();
         const username = document.getElementById('username').value.trim();
         const box = document.getElementById('resultBox');
-        if (!username) { alert('Nhập username đi bạn!'); return; }
+        
+        if (!username) { 
+            alert('Vui lòng nhập tên tài khoản!'); 
+            return; 
+        }
         
         try {
             const res = await fetch(`${url}/api/user/${username}`);
             box.style.display = 'block';
             
-            // Nếu server trả về lỗi 404 (Không tìm thấy tài khoản)
+            // Nếu server trả về 404 (Không tìm thấy tài khoản)
             if (res.status === 404) {
                 box.style.borderLeftColor = '#e41e3f';
-                box.innerHTML = `<span style="color:red; font-weight:bold;">❌ Tài khoản "${username}" không tồn tại trên hệ thống!</span>`;
+                box.innerHTML = `<span style="color:#e41e3f; font-weight:bold;">❌ Tài khoản "${username}" không tồn tại trên hệ thống!</span>`;
                 return;
             }
 
             const data = await res.json();
             box.style.borderLeftColor = '#0066ff';
-            box.innerHTML = `<b>Thông tin tài khoản:</b><br>- User: ${data.username}<br>- Pro: <b>${data.is_pro ? 'Đang bật ⭐' : 'Chưa bật'}</b><br>- Còn hạn dùng thử: ${data.is_trial_active ? 'Còn' : 'Hết'}<br>- Hết hạn: ${new Date(data.trial_expires_at).toLocaleString()}`;
+            box.innerHTML = `<b>Thông tin tài khoản:</b><br>` +
+                            `- User: ${data.username}<br>` +
+                            `- Pro: <b>${data.is_pro ? 'Đang bật ⭐' : 'Chưa bật'}</b><br>` +
+                            `- Còn hạn dùng thử: ${data.is_trial_active ? 'Còn' : 'Hết'}<br>` +
+                            `- Hết hạn: ${new Date(data.trial_expires_at).toLocaleString()}`;
         } catch (err) { 
             box.style.display = 'block'; 
             box.style.borderLeftColor = '#e41e3f';
-            box.innerHTML = `<span style="color:red;">Lỗi kết nối máy chủ API!</span>`; 
+            box.innerHTML = `<span style="color:#e41e3f;">⚠️ Lỗi kết nối đến máy chủ API!</span>`; 
         }
     }
 
@@ -85,7 +95,11 @@
         const isPro = document.getElementById('isPro').value === 'true';
         const extendDays = parseInt(document.getElementById('extendDays').value) || 0;
         const box = document.getElementById('resultBox');
-        if (!username) { alert('Nhập username đi bạn!'); return; }
+        
+        if (!username) { 
+            alert('Vui lòng nhập tên tài khoản!'); 
+            return; 
+        }
         
         try {
             const res = await fetch(`${url}/api/admin/update-user/${username}`, {
@@ -95,20 +109,23 @@
             });
             
             box.style.display = 'block';
+            
             if (res.status === 404) {
                 box.style.borderLeftColor = '#e41e3f';
-                box.innerHTML = `<span style="color:red; font-weight:bold;">❌ Không thể cập nhật: Tài khoản không tồn tại!</span>`;
+                box.innerHTML = `<span style="color:#e41e3f; font-weight:bold;">❌ Không thể cập nhật: Tài khoản không tồn tại!</span>`;
                 return;
             }
 
             const data = await res.json();
             box.style.borderLeftColor = '#28a745';
-            box.innerHTML = `<span style="color:green; font-weight:bold;">${data.message}</span>`;
+            box.innerHTML = `<span style="color:#28a745; font-weight:bold;">✅ ${data.message || 'Cập nhật thành công!'}</span>`;
+            
+            // Tự động load lại thông tin mới sau khi cập nhật
             checkUser();
         } catch (err) { 
             box.style.display = 'block'; 
             box.style.borderLeftColor = '#e41e3f';
-            box.innerHTML = `<span style="color:red;">Lỗi cập nhật!</span>`; 
+            box.innerHTML = `<span style="color:#e41e3f;">⚠️ Lỗi kết nối khi cập nhật!</span>`; 
         }
     }
 </script>
