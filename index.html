@@ -17,7 +17,7 @@
         .brand-name span { color: #0066ff; }
         
         /* Badge Trạng thái Pro / dùng thử ở góc phải */
-        .user-status-badge { font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 20px; display: inline-block; }
+        .user-status-badge { font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: 20px; display: inline-block; }
         .badge-pro { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
         .badge-trial { background: #e2e3e5; color: #383d41; border: 1px solid #d6d8db; }
         .badge-expired { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
@@ -61,7 +61,7 @@
             </div>
         </div>
 
-        <!-- Khu vực góc trên bên phải: Badge trạng thái + Nút cài đặt -->
+        <!-- Khu vực góc trên bên phải: Badge trạng thái (Trial/Pro) + Nút cài đặt -->
         <div style="display: flex; align-items: center; gap: 8px;">
             <div id="statusBadge" class="user-status-badge badge-trial">⏳ Đang tải...</div>
             <button onclick="switchTab('settings')" style="background: #f0f2f5; border: none; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #1c1e21;">
@@ -157,7 +157,6 @@
                 badge.innerHTML = "⭐ PRO VIP";
                 accStatus.innerHTML = "<span style='color: #28a745;'>⭐ Tài khoản PRO (Vĩnh viễn)</span>";
             } else if (data.is_trial_active) {
-                // Tự động tính số ngày còn lại từ ngày hết hạn
                 const expiresDate = new Date(data.trial_expires_at);
                 const now = new Date();
                 const diffTime = expiresDate - now;
@@ -178,7 +177,6 @@
         }
     }
 
-    // Tự động kiểm tra trạng thái khi mở app
     loadAccountStatus();
 </script>
 </body>
