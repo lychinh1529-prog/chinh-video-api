@@ -57,12 +57,26 @@
         const username = document.getElementById('username').value.trim();
         const box = document.getElementById('resultBox');
         if (!username) { alert('Nhập username đi bạn!'); return; }
+        
         try {
             const res = await fetch(`${url}/api/user/${username}`);
-            const data = await res.json();
             box.style.display = 'block';
-            box.innerHTML = `<b>Thông tin:</b><br>- User: ${data.username}<br>- Pro: <b>${data.is_pro ? 'Đang bật ⭐' : 'Chưa bật'}</b><br>- Còn hạn dùng thử: ${data.is_trial_active ? 'Còn' : 'Hết'}<br>- Hết hạn: ${new Date(data.trial_expires_at).toLocaleString()}`;
-        } catch (err) { box.style.display = 'block'; box.innerHTML = `<span style="color:red;">Lỗi kết nối API!</span>`; }
+            
+            // Nếu server trả về lỗi 404 (Không tìm thấy tài khoản)
+            if (res.status === 404) {
+                box.style.borderLeftColor = '#e41e3f';
+                box.innerHTML = `<span style="color:red; font-weight:bold;">❌ Tài khoản "${username}" không tồn tại trên hệ thống!</span>`;
+                return;
+            }
+
+            const data = await res.json();
+            box.style.borderLeftColor = '#0066ff';
+            box.innerHTML = `<b>Thông tin tài khoản:</b><br>- User: ${data.username}<br>- Pro: <b>${data.is_pro ? 'Đang bật ⭐' : 'Chưa bật'}</b><br>- Còn hạn dùng thử: ${data.is_trial_active ? 'Còn' : 'Hết'}<br>- Hết hạn: ${new Date(data.trial_expires_at).toLocaleString()}`;
+        } catch (err) { 
+            box.style.display = 'block'; 
+            box.style.borderLeftColor = '#e41e3f';
+            box.innerHTML = `<span style="color:red;">Lỗi kết nối máy chủ API!</span>`; 
+        }
     }
 
     async function updateUser() {
@@ -72,19 +86,31 @@
         const extendDays = parseInt(document.getElementById('extendDays').value) || 0;
         const box = document.getElementById('resultBox');
         if (!username) { alert('Nhập username đi bạn!'); return; }
+        
         try {
             const res = await fetch(`${url}/api/admin/update-user/${username}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ is_pro: isPro, extend_days: extendDays })
             });
-            const data = await res.json();
+            
             box.style.display = 'block';
+            if (res.status === 404) {
+                box.style.borderLeftColor = '#e41e3f';
+                box.innerHTML = `<span style="color:red; font-weight:bold;">❌ Không thể cập nhật: Tài khoản không tồn tại!</span>`;
+                return;
+            }
+
+            const data = await res.json();
+            box.style.borderLeftColor = '#28a745';
             box.innerHTML = `<span style="color:green; font-weight:bold;">${data.message}</span>`;
             checkUser();
-        } catch (err) { box.style.display = 'block'; box.innerHTML = `<span style="color:red;">Lỗi cập nhật!</span>`; }
+        } catch (err) { 
+            box.style.display = 'block'; 
+            box.style.borderLeftColor = '#e41e3f';
+            box.innerHTML = `<span style="color:red;">Lỗi cập nhật!</span>`; 
+        }
     }
 </script>
 </body>
 </html>
-
